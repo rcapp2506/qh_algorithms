@@ -1,0 +1,9 @@
+numpy
+matplotlib
+qiskit
+torch
+tqdm
+opencv-python
+torchinfo
+lightning
+pennylane
