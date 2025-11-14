@@ -1,0 +1,99 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# PyTorch
+*.pth
+*.pt
+
+# Training outputs
+lightning_logs/
+lightning_logs_*/
+saved_models/
+saved_models_*/
+checkpoints/
+*.ckpt
+
+# TensorBoard
+runs/
+events.out.tfevents.*
+
+# Dataset (optional - uncomment if dataset is large)
+# dataset/
+# *.jpg
+# *.jpeg
+# *.png
+# *.tif
+
+# Results
+results/
+outputs/
+*.csv
+comparison_results.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# System
+Thumbs.db
+.directory
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Compiled
+*.pyc
+*.pyo
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
