@@ -4,39 +4,22 @@ Revisione finale dell'infrastruttura multi-seed Wave K, basata sul codice
 reale di Filippi (`hybrid_qcnn_v2_0_filippi_5.ipynb`) anziché sui notebook
 standalone del Round 3.
 
-## Notebook (Round 4 + ottimizzazioni Wave K)
+## Setup effettivo (post-tuning Wave K)
+
+Setup definitivo del Cap.3 sec:stats-significance, coerente con il run
+CCNN R=10 già completato:
+
+- `max_samples_per_class = 100` per classe (binary EuroSAT Forest vs AnnualCrop)
+- Split train/val 80/20 → N_train=160, N_val=200
+- `max_epochs = 10`
+- `R = 10` run multi-seed con `seed = 42 + run_idx * 111`
+- Ottimizzazioni quantum (solo QCNN): detach input grad (E), StatevectorEstimator (F)
+
+## Notebook
 
 ### `hybrid_qcnn_multiseed_stats_v1.ipynb`
 QCNN modello `C16-Q64` di Filippi (tesi magistrale, Pisa AA 2024/2025,
-supervisori Morsch + Cappuccio). EuroSAT 2 classi (coerente con Filippi
-§6.3.1), R=10 multi-seed.
-
-**Ottimizzazioni Wave K applicate** (vs Filippi v2.0 originale):
-- **A**: `max_epochs` 40 → 15 (plateau Filippi ~10 ep + 50% buffer)
-- **B**: `max_samples_per_class` 100 → 40 (binario satura presto, coerente
-  con il regime di `sec:hw_validation` del Cap.3)
-- **E**: detach input grad nel `QuantumConvLayer.forward` → dimezza il
-  numero di PUB per backward (36 → 18 per W=9, n=9); il trunk classico a
-  monte riceve gradient solo via classification loss, non attraverso la
-  Jacobiana parameter-shift del quanv. Trade-off documentato nel
-  manoscritto Cap.3 sec:results-stats.
-- **F**: `backend_type` "aer" → "statevector" (StatevectorEstimator puro,
-  più veloce di AerSimulator per 9 qubit ideali)
-
-**Speedup atteso** sui tempi originali di Filippi v2.0:
-- A: 2.7× (40→15 epoche)
-- B: 2.5× (100→40 sample)
-- E: 1.5× (18/36 = 0.5× backward, forward inalterato → ~1.5× totale)
-- F: 2-3× (StatevectorEstimator vs AerSimulator per 9 qubit)
-- **Cumulato: ~15-20× speedup** rispetto a Filippi v2.0 baseline.
-
-Stima tempo/seed: da ~10 h a ~30-40 min su CPU (verificare al primo run).
-
-Sezioni statistiche:
-- **§18.5**: Wilson 95% CI + bootstrap CI per ogni run (single-arch)
-- **§18.7**: Wilcoxon signed-rank paired QCNN-vs-CCNN (cross-arch)
-- **§19**: Salvataggio JSON formato esteso + predizioni CSV per-item
-- **§19.5**: Replay post-hoc dei plot da JSON salvati
+supervisori Morsch + Cappuccio).
 
 Output: `Output_QCNN_v1_multiseed/results.json`.
 
@@ -45,22 +28,28 @@ Notebook gemello — CCNN matched-capacity ablation. Stessi 16/32/64 canali,
 dropout 5%, profondità del QCNN; sostituisce `QuantumConvLayer(64,64)` con
 `Conv2d(64,64,kernel=3,padding=1)` classico equivalente.
 
-**Ottimizzazioni Wave K (A, B)** applicate per coerenza statistica con
-QCNN. Niente E ed F (non c'è quantum stack). Il CCNN è veloce in se' e non
-richiede ottimizzazioni aggressive: stima tempo/seed ~5-10 min su CPU.
+**Run effettivo CCNN (commit `1c27bc7`)**: R=10 seed, ~15 s/seed CPU, totale
+~2.5 min. Risultati: `final_val_acc = 0.9835 ± 0.0047` con bootstrap 95% CI
+sulla mean [0.9810, 0.9865] a N_val=200. Tutti e 10 i seed convergono entro
+3-4 epoche al plateau ~98%.
 
 Output: `Output_CCNN_v1_multiseed/results.json`.
 
 ## Schema seed (unico)
 `seed = 42 + run_idx * 111`, R=10 → seeds {42, 153, 264, 375, 486, 597,
-708, 819, 930, 1041}. Lo schema deve essere **identico** nei due notebook
-per il pairing del Wilcoxon signed-rank test sul `run_idx`.
+708, 819, 930, 1041}. Identico nei due notebook per il pairing del Wilcoxon
+signed-rank test.
 
-## Differenza dal Round 3
-Il Round 3 (commit 3f97ea0) implementava `multirun.py` + 3 notebook
-standalone (HQCNN/qiskit_one_q/esa_modello). Questo Round 4 li sostituisce
-funzionalmente con la pipeline Filippi-based ma li lascia in tree come
-storia. La pipeline di riferimento per la tesi è Round 4.
+## Ottimizzazioni QCNN-only
+
+- **E**: detach input grad nel `QuantumConvLayer.forward` → dimezza PUB
+  backward (36 → 18 per W=9, n=9). Trade-off documentato in
+  `sec:results-stats` del Cap.3 ("A note on the gradient flow through the
+  quanvolutional layer").
+- **F**: `backend_type` "aer" → "statevector" (StatevectorEstimator puro,
+  più veloce di AerSimulator per 9 qubit ideali)
+
+Speedup atteso QCNN: ~3-5× rispetto a Filippi v2.0 baseline.
 
 ## Test statistico
 `scipy.stats.wilcoxon(method='exact', alternative='two-sided')` sui R=10
@@ -71,3 +60,9 @@ raggiungibile (esatto) è 2/2^10 ≈ 0.002.
 Citato testualmente nel Cap.3 come riferimento bibliografico per il purely-
 quantum reference model. Non incluso nel Wilcoxon paired perché non
 disponiamo dei dati grezzi seed-per-seed.
+
+## Storia delle revisioni
+- Commit `816a1d4` (Round 4 v1): pipeline Filippi-based introdotta
+- Commit `4903fff` (Round 4 v2): ottimizzazioni A+B+E+F (40 sample, 15 ep)
+- Commit `1c27bc7` (Round 4 v3): fix plot_all_curves suptitle CCNN
+- Commit attuale (Round 4 v4): config allineato al run effettivo 100/10
