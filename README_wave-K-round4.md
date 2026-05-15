@@ -66,3 +66,36 @@ disponiamo dei dati grezzi seed-per-seed.
 - Commit `4903fff` (Round 4 v2): ottimizzazioni A+B+E+F (40 sample, 15 ep)
 - Commit `1c27bc7` (Round 4 v3): fix plot_all_curves suptitle CCNN
 - Commit attuale (Round 4 v4): config allineato al run effettivo 100/10
+
+## Ottimizzazioni di parallelismo (commit successivo a 1681c1a)
+
+Tre ottimizzazioni ortogonali per ridurre il tempo simulator del QCNN:
+
+**Opzione 1 — Aer multi-thread**: `backend_type="aer"` con
+`aer_max_parallel_experiments=4`. AerSimulator(method='statevector') con
+`max_parallel_experiments=N` parallelizza i PUB bindings su N thread,
+sostituendo lo StatevectorEstimator puro che era single-thread.
+
+**Opzione 2 — BLAS multi-thread**: in cell 2, `OMP_NUM_THREADS`,
+`MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS` settati a
+4 PRIMA degli import numpy/torch/qiskit. Velocizza le matrix-vector
+operations sottostanti statevector simulation.
+
+**Opzione 3 — ProcessPoolExecutor sui R seed**: cell 31 contiene branch
+`if not config.parallel_seeds: ...` (default seriale) `else: ...` con
+ProcessPoolExecutor + spawn context. Ogni worker ricrea
+BackendManager + DataModule fresh (non sono pickleable).
+
+### Tuning consigliato in base al numero di core fisici
+
+Per un sistema con N_CPU core fisici:
+- **Conservativo, primo run**: `parallel_seeds=False` (seriale).
+  `OMP_NUM_THREADS=N_CPU`, `aer_max_parallel_experiments=N_CPU`.
+- **Aggressivo, dopo aver validato il baseline**:
+  `parallel_seeds=True`, `n_parallel_seeds=N_CPU//4`.
+  `OMP_NUM_THREADS=N_CPU//n_parallel_seeds`,
+  `aer_max_parallel_experiments=N_CPU//n_parallel_seeds`.
+  Totale thread attivi: ~N_CPU.
+
+Esempio su 8 core: `n_parallel_seeds=2, OMP_NUM_THREADS=4`.
+Esempio su 16 core: `n_parallel_seeds=4, OMP_NUM_THREADS=4`.
