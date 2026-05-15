@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 multirun_csv/
 multirun_logs/
+
+# Wave K Round 4 outputs (Filippi-based)
+Output_QCNN_v1_multiseed/
+Output_CCNN_v1_multiseed/
