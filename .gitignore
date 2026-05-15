@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+multirun_csv/
+multirun_logs/
