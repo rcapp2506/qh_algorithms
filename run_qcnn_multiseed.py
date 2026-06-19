@@ -1,53 +1,53 @@
 #!/usr/bin/env python3
-"""run_qcnn_multiseed.py — Batch standalone QCNN R=10 multi-seed (Wave K v3)
+"""run_qcnn_multiseed.py - Standalone batch QCNN R=10 multi-seed (Wave K v3)
 
-Lanciato da terminale, non da Jupyter. Risolve il bug AttributeError di spawn
-+ notebook spostando _worker_run_one_seed a top-level del modulo (così il
-child process può importarla via `import __main__`).
+Launched from the terminal, not from Jupyter. Fixes the spawn+notebook
+AttributeError bug by moving _worker_run_one_seed to module top-level (so the
+child process can import it via `import __main__`).
 
-Uso:
+Usage:
     cd ~/code/Q-CONV
     conda activate qiskitq
     nohup python run_qcnn_multiseed.py > qcnn_run.log 2>&1 &
     tail -f qcnn_run.log
 
-oppure in screen/tmux:
+or in screen/tmux:
     screen -S qcnn
     python run_qcnn_multiseed.py
     Ctrl-A D  # detach
-    # ... riconnetti più tardi:
+    # ... reconnect later:
     screen -r qcnn
 
 Output:
-    Output_QCNN_v1_multiseed/results.json          (finale, R seed completati)
-    Output_QCNN_v1_multiseed/partial_state.json    (checkpoint dopo ogni seed)
-    Output_QCNN_v1_multiseed/predictions/*.csv     (per Wilcoxon cross-arch)
+    Output_QCNN_v1_multiseed/results.json          (final, R completed seeds)
+    Output_QCNN_v1_multiseed/partial_state.json    (checkpoint after each seed)
+    Output_QCNN_v1_multiseed/predictions/*.csv     (for Wilcoxon cross-arch)
     Output_QCNN_v1_multiseed/stat_runs/run_NN_sXXX/ (Lightning logs per seed)
 
-Configurazione tuning S3 (post-bench v3):
-    OMP_NUM_THREADS=2 (PRIMA degli import)
+S3 tuning configuration (post-bench v3):
+    OMP_NUM_THREADS=2 (BEFORE the imports)
     n_parallel_seeds=3, aer_max_parallel_experiments=3, n_parallel_chunks=4
-    Speedup: 2.36x vs S1 seriale. R=10 stimato ~16-20h su i9-12900H.
+    Speedup: 2.36x vs serial S1. R=10 estimated ~16-20h on i9-12900H.
 
 Robustness:
     - Checkpointing per-seed atomic (tmp+replace)
-    - Singolo seed fallito NON interrompe il loop, gli altri continuano
-    - KeyboardInterrupt (Ctrl-C) salva stato corrente prima dello shutdown
-    - Per recupero parziale: cp partial_state.json results.json
+    - A single failed seed does NOT interrupt the loop; the others continue
+    - KeyboardInterrupt (Ctrl-C) saves the current state before shutdown
+    - For partial recovery: cp partial_state.json results.json
 
-Argomenti CLI:
+CLI arguments:
     --num-runs R           (default 10)
     --output-dir DIR       (default Output_QCNN_v1_multiseed)
     --max-epochs E         (default 10)
-    --max-samples N        (default 100 per classe)
+    --max-samples N        (default 100 per class)
     --n-parallel-seeds W   (default 3, S3 tuning)
-    --serial               (forza loop seriale, ignora ProcessPool)
+    --serial               (force serial loop, ignore ProcessPool)
 
-Autore: Wave K post-bench v3 (Cap.3 tesi Cappuccio)
+Author: Wave K post-bench v3 (Cap.3 Cappuccio thesis)
 """
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  ENV VAR SETUP (deve precedere ogni import di numpy/torch/qiskit)
+#  ENV VAR SETUP (must precede every numpy/torch/qiskit import)
 # ═══════════════════════════════════════════════════════════════════════════
 import os as _os_threads
 _os_threads.environ.setdefault('OMP_NUM_THREADS', '2')
@@ -105,16 +105,16 @@ except ImportError:
     HAS_AER = False
 
 QISKIT_VERSION = tuple(int(x) for x in qiskit.__version__.split('.')[:2])
-assert QISKIT_VERSION >= (2, 0), f"Richiesto Qiskit >= 2.0, trovato {qiskit.__version__}"
+assert QISKIT_VERSION >= (2, 0), f"Qiskit >= 2.0 required, found {qiskit.__version__}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  CONFIG (cell 4 del notebook)
+#  CONFIG (cell 4 of the notebook)
 # ═══════════════════════════════════════════════════════════════════════════
 
 @dataclass
 class QCNNConfig:
-    """Configurazione — riproduzione Filippi (Wave K v3 batch)."""
+    """Config - Filippi reproduction (Wave K v3 batch)."""
 
     # ── Backend ──
     backend_type: Literal["statevector", "aer", "aer_noise", "ibm"] = "aer"
@@ -126,7 +126,7 @@ class QCNNConfig:
     optimization_level: int = 1
     noise_backend_name: str = "ibm_brisbane"
 
-    # ── Circuito quantistico ──
+    # ── Quantum circuit ──
     num_qubits: int = 9
     kernel_size: int = 3
     stride: int = 1
@@ -311,7 +311,7 @@ class EuroSATDataModule(L.LightningDataModule):
 # ═══════════════════════════════════════════════════════════════════════════
 
 class MetricsLogger(Callback):
-    """Registra metriche per ogni epoca — log su file + memoria."""
+    """Records metrics for each epoch - logs to file + memory."""
 
     def __init__(self, log_dir=None):
         super().__init__()
@@ -397,7 +397,7 @@ class BackendManager:
 
     def _setup_aer(self):
         if not HAS_AER:
-            print("  ⚠️ qiskit-aer non disponibile → fallback StatevectorEstimator")
+            print("  ⚠️ qiskit-aer not available -> StatevectorEstimator fallback")
             self._setup_statevector()
             return
         n_parallel = getattr(self.config, 'aer_max_parallel_experiments', 0)
@@ -467,7 +467,7 @@ class BackendManager:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class FilippiCircuitBuilder:
-    """Circuito quantistico Filippi: 9 qubit, 9 RZ trainabili, misura Z su qubit 0."""
+    """Filippi quantum circuit: 9 qubits, 9 trainable RZ, Z measurement on qubit 0."""
 
     def __init__(self, config: QCNNConfig):
         self.n = config.num_qubits
@@ -681,10 +681,10 @@ class QuantumConvFunction(torch.autograd.Function):
 
 
 class QuantumConvLayer(nn.Module):
-    """Layer convoluzionale quantistico — Filippi + channel batching.
+    """Quantum convolutional layer - Filippi + channel batching.
 
-    Pesi quantistici condivisi tra tutti i canali (depthwise, shared weights).
-    Tutti i canali in UNA sola estimator call (channel batching).
+    Quantum weights shared across all channels (depthwise, shared weights).
+    All channels in a SINGLE estimator call (channel batching).
     """
 
     def __init__(self, config: QCNNConfig, backend_manager: BackendManager):
@@ -917,7 +917,7 @@ def run_single_training(config, backend_manager, data_module, device, seed, run_
         'pub_count': ql.engine.total_pub_count,
     }
 
-    print(f"  ⏱  {elapsed:.0f}s ({actual_epochs} epoche)")
+    print(f"  ⏱  {elapsed:.0f}s ({actual_epochs} epochs)")
     print(f"  Best val_acc: {result['best_val_acc']:.4f}")
     print(f"  Final val_acc: {result['final_val_acc']:.4f} ({sum(val_correct)}/{len(val_correct)})")
 
@@ -933,10 +933,10 @@ def run_single_training(config, backend_manager, data_module, device, seed, run_
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _worker_run_one_seed(cfg, run_idx, seed):
-    """Esegue una singola run di training in un sub-process.
+    """Runs a single training run in a sub-process.
 
-    DEVE essere top-level del modulo perché spawn deve poterla importare
-    via `import __main__`. NON definirla dentro main() o dentro altra funzione.
+    MUST be at module top-level because spawn must be able to import it
+    via `import __main__`. Do NOT define it inside main() or another function.
     """
     _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     _bm = BackendManager(cfg)
@@ -970,9 +970,9 @@ def _config_subdict(config):
 
 
 def _save_partial(partial_path, config, results, completed_indices, failed_indices):
-    """Salvataggio atomic (tmp + replace) del partial state.
-    Schema compatibile con results.json finale: cp partial_state.json results.json
-    funziona per il replay.
+    """Atomic save (tmp + replace) of the partial state.
+    Schema compatible with the final results.json: cp partial_state.json results.json
+    works for replay.
     """
     partial = {
         'architecture': 'hybrid_qcnn_v1_partial',
@@ -991,17 +991,17 @@ def _save_partial(partial_path, config, results, completed_indices, failed_indic
 
 
 def _save_final_results(config, results):
-    """Salva results.json finale e predictions/*.csv (schema cell 50 notebook)."""
+    """Saves the final results.json and predictions/*.csv (cell-50 notebook schema)."""
     save_path = os.path.join(config.output_dir, 'results.json')
     with open(save_path, 'w') as f:
         _json.dump({
             'architecture': 'hybrid_qcnn_v1',
             'config': _config_subdict(config),
             'results': results,
-            'stats_summary': {},   # calcolato nel notebook §18
-            'wilcoxon_results': {},  # calcolato nel notebook §18.7
+            'stats_summary': {},   # computed in the notebook §18
+            'wilcoxon_results': {},  # computed in the notebook §18.7
         }, f, indent=2)
-    print(f"\n✓ Risultati salvati: {save_path}")
+    print(f"\n✓ Results saved: {save_path}")
 
     pred_dir = os.path.join(config.output_dir, 'predictions')
     os.makedirs(pred_dir, exist_ok=True)
@@ -1034,7 +1034,7 @@ def parse_args():
     p.add_argument('--n-parallel-chunks', type=int, default=4,
                    help='PUB splitting K (default 4)')
     p.add_argument('--serial', action='store_true',
-                   help='forza loop seriale (ignora ProcessPool)')
+                   help='force serial loop (ignore ProcessPool)')
     p.add_argument('--smoke-test', action='store_true',
                    help='smoke test rapido: R=1, max_epochs=1, dataset sintetico')
     return p.parse_args()
@@ -1082,8 +1082,8 @@ def main():
     partial_path = os.path.join(config.output_dir, 'partial_state.json')
 
     if not config.parallel_seeds:
-        # ── Modalità seriale ──
-        print(f"Modalita: SERIALE ({config.num_stat_runs} seed in sequenza)\n")
+        # ── Serial mode ──
+        print(f"Mode: SERIAL ({config.num_stat_runs} seeds in sequence)\n")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         bm = BackendManager(config)
         bm.initialize()
@@ -1099,7 +1099,7 @@ def main():
                 r = run_single_training(config, bm, dm, device, seed, run_idx, verbose=True)
                 results.append(r)
                 completed.add(run_idx)
-                # Salvataggio incrementale: results è una lista di solo successi
+                # Incremental save: results is a list of successes only
                 _save_partial(partial_path, config,
                               {i: results[i] for i in range(len(results))},
                               completed, failed)
@@ -1108,10 +1108,10 @@ def main():
                       f"{elapsed:.1f} min wallclock]")
             except Exception as e:
                 failed.add(run_idx)
-                print(f"  ⚠ Run {run_idx+1} FALLITA: {type(e).__name__}: {e}")
+                print(f"  ⚠ Run {run_idx+1} FAILED: {type(e).__name__}: {e}")
         bm.close()
     else:
-        # ── Modalità parallela (S3 default) ──
+        # ── Parallel mode (S3 default) ──
         cfg_pickleable = _copy.copy(config)
         try:
             _pickle.dumps(cfg_pickleable)
@@ -1157,7 +1157,7 @@ def main():
                     except Exception as e:
                         failed.add(run_idx)
                         _save_partial(partial_path, config, results, completed, failed)
-                        print(f"  ⚠ Run {run_idx+1:2d}/{config.num_stat_runs} FALLITA  "
+                        print(f"  ⚠ Run {run_idx+1:2d}/{config.num_stat_runs} FAILED  "
                               f"seed={seeds[run_idx]}  "
                               f"{type(e).__name__}: {e}")
                         # NON rilanciare: gli altri future devono completare.
@@ -1170,24 +1170,24 @@ def main():
         # Compatta results rimuovendo i None
         results = [r for r in results if r is not None]
 
-    # ── Report finale ──
+    # ── Final report ──
     total_min = (time.time() - t_start) / 60
     print(f"\n{'=' * 72}")
-    print(f"  COMPLETATO: {len(results)}/{config.num_stat_runs} run "
+    print(f"  COMPLETED: {len(results)}/{config.num_stat_runs} runs "
           f"in {total_min:.1f} min ({total_min/60:.2f} h)")
     print(f"{'=' * 72}")
 
     if failed:
-        print(f"\n⚠ ATTENZIONE: {len(failed)} run FALLITE → indici {sorted(failed)}")
-        print(f"  partial_state.json contiene i {len(completed)} run riusciti.")
-        print(f"  Per usare i parziali: cp {partial_path} "
+        print(f"\n⚠ WARNING: {len(failed)} runs FAILED -> indices {sorted(failed)}")
+        print(f"  partial_state.json contains the {len(completed)} successful runs.")
+        print(f"  To use the partials: cp {partial_path} "
               f"{os.path.join(config.output_dir, 'results.json')}")
-        # Salva comunque results.json con i parziali — analisi possibile
+        # Save results.json with the partials anyway - analysis still possible
         _save_final_results(config, results)
     else:
         _save_final_results(config, results)
         print(f"\n✓ Tutti i {config.num_stat_runs} run completati con successo.")
-        print(f"  partial_state.json può essere rimosso (results.json è il dato definitivo).")
+        print(f"  partial_state.json can be removed (results.json is the definitive data).")
 
     print(f"\nFine: {datetime.now().isoformat()}")
 

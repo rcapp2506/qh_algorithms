@@ -36,20 +36,14 @@ CCNN-big high-capacity, CCNN-small matched-capacity), with block-level
 decomposition. Confirms that CCNN-small differs from QCNN by 0.07% of
 total trainable parameters.
 
-### `paired_pere_con_pere.py`
-Three paired Wilcoxon signed-rank tests across the three simulator
-levels (Level 1 = CCNN-big, Level 2 = CCNN-small, Level 3 = QCNN). Each
-test is performed in both exact and asymptotic form, with rounding to
-4 decimal places to neutralise float32 precision artefacts. Includes
-sign tests, paired t-tests (parametric sanity), and effect sizes
-(paired Cohen's d, rank-biserial correlation). Produces
-`summary_pere_con_pere.json`.
-
-### `plot_pere_con_pere.py`
-Three figures: per-seed slope plot across the three levels with per-seed
-Δ bars; violin plot of the three levels with annotated paired p-values;
-mean ± σ curves of QCNN versus CCNN-small over all 10 seeds (QCNN
-curves rebuilt from 7 metrics.csv in stat_runs.zip + 3 recovery JSON).
+### `aggregate_cap3_stats.py`
+Single source of truth for the Cap. 3 paired statistics. Runs the three
+paired Wilcoxon signed-rank tests across the simulator levels (QCNN vs
+CCNN-small, QCNN vs CCNN-big, CCNN-big vs CCNN-small), each in exact and
+asymptotic form with 4-decimal rounding to neutralise float32 artefacts,
+plus sign tests, paired t-tests, and paired effect sizes (Cohen's d,
+rank-biserial). Reads `cap3_results_per_seed.csv` and asserts every value
+against the manuscript. Supersedes the earlier per-level analysis scripts.
 
 ### `plot_four_level.py`
 Two figures: 4-level evidence ladder overview (sim curves + Emerald HW

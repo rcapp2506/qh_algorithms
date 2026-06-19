@@ -2,17 +2,17 @@
 Wave-K final aggregation: R=10 QCNN noiseless multi-seed analysis.
 
 Inputs:
-  - 7 seed dalla memoria handoff (run 00,01,02,03,04,05,09)
+  - 7 seeds from the handoff memory (run 00,01,02,03,04,05,09)
   - 3 file JSON di recovery (run 06,07,08) in ./recovery/
 
 Output:
-  - Tabelle stat per final_val_acc e best_val_acc
-  - Wilson 95% CI sulla media empirica (su pooled k/N e su mean p)
+  - Stat tables for final_val_acc and best_val_acc
+  - Wilson 95% CI on the empirical mean (on pooled k/N and on mean p)
   - One-sample comparison vs CCNN reference 0.9835 ± 0.0047 (R=10)
   - Three figures: mean_bands.png, QCNN_distributions.png, QCNN_wilson_intervals.png
-  - JSON di summary salvato in output/
+  - Summary JSON saved in output/
 
-Methodological double check (cf. memoria progetto):
+Methodological double check (cf. project memory):
   - mean/std: numpy ddof=1 vs scipy.stats.describe
   - Wilson CI: formula chiusa vs statsmodels.proportion_confint
   - one-sample vs CCNN: scipy ttest_1samp + Wilcoxon signed-rank one-sample
@@ -27,9 +27,9 @@ import matplotlib.pyplot as plt
 from scipy import stats as sstats
 
 # ---------------------------------------------------------------------------
-# 1.  DATI: 7 seed da memoria + 3 da recovery JSON
+# 1.  DATA: 7 seeds from memory + 3 from recovery JSON
 # ---------------------------------------------------------------------------
-# Dalla memoria handoff (verificati nei file metrics.csv di stat_runs.zip)
+# From the handoff memory (verified in the metrics.csv files of stat_runs.zip)
 memory_seven = [
     # (run_idx, seed, final_val_acc, best_val_acc)
     (0,   42, 0.9550, 0.9850),
@@ -53,7 +53,7 @@ for p in recovery_paths:
 # Sanity: ci aspettiamo run 06,07,08
 assert sorted(x[0] for x in recovery_three) == [6, 7, 8], f"recovery runs mismatch: {recovery_three}"
 
-# Unione + ordinamento per run_idx → tabella R=10
+# Union + sort by run_idx -> R=10 table
 all_runs = sorted(memory_seven + recovery_three, key=lambda x: x[0])
 assert [x[0] for x in all_runs] == list(range(10))
 
@@ -74,7 +74,7 @@ for i, s, f_, b_ in all_runs:
 print()
 
 # ---------------------------------------------------------------------------
-# 2.  STATISTICA — doppio check con metodi indipendenti
+# 2.  STATISTICS - double-check with independent methods
 # ---------------------------------------------------------------------------
 def descrip_pair(label, x):
     """Doppio metodo: NumPy ddof=1 vs scipy.stats.describe."""
@@ -107,7 +107,7 @@ for k, v in stat_best.items():
 print()
 
 # ---------------------------------------------------------------------------
-# 3.  WILSON 95% CI — su pooled k (sum di tutti i correct) e su mean accuracy
+# 3.  WILSON 95% CI - on pooled k (sum of all correct) and on mean accuracy
 # ---------------------------------------------------------------------------
 # Wilson CI formula chiusa (one-proportion, two-sided 95%)
 # NOTA: usiamo z esatto (norm.ppf(0.975)) per allineare con statsmodels.
@@ -119,7 +119,7 @@ def wilson_ci_closed(k, n, z=Z_975):
     half   = z * math.sqrt(p * (1.0 - p) / n + z * z / (4.0 * n * n))
     return ((centre - half) / denom, (centre + half) / denom)
 
-# Per ogni run, k = round(final_val_acc * N_val)
+# For each run, k = round(final_val_acc * N_val)
 k_per_run = np.round(final_acc * N_VAL).astype(int)
 k_total   = int(np.sum(k_per_run))            # pooled correct
 n_total   = N_VAL * R                          # pooled trials
@@ -149,7 +149,7 @@ print()
 # ---------------------------------------------------------------------------
 # 4.  CONFRONTO vs CCNN baseline (one-sample)
 # ---------------------------------------------------------------------------
-# Memoria handoff: CCNN baseline R=10  → 0.9835 ± 0.0047
+# Handoff memory: CCNN baseline R=10  -> 0.9835 +/- 0.0047
 CCNN_MEAN = 0.9835
 CCNN_STD  = 0.0047   # SD across the 10 CCNN seed (handoff)
 
@@ -186,10 +186,10 @@ print(f"  Cohen's d (pooled SD)   : d = {cohen_d:.3f}")
 print()
 
 # ---------------------------------------------------------------------------
-# 5.  CONVERGENCE: estraggo learning curves dai 3 file recovery
-#     (per i 7 mancanti userò solo i final values; per le bande userò R=3 dei recovery
-#      + ricostruzione fedele da metrics se disponibile.  Per ora costruisco le bande
-#      con i dati a disposizione e segnalo.)
+# 5.  CONVERGENCE: extract learning curves from the 3 recovery files
+#     (for the 7 missing ones use only the final values; for the bands use R=3 of the recovery
+#      + faithful reconstruction from metrics if available.  For now build the bands
+#      with the available data and flag it.)
 # ---------------------------------------------------------------------------
 val_curves = []
 train_curves = []
@@ -210,8 +210,8 @@ train_mean = train_curves_arr.mean(axis=0)
 train_std  = train_curves_arr.std(axis=0, ddof=1)
 
 print(f"--- learning-curve bands (recovery only, n=3): WARNING ---")
-print(f"  NOTA: bande costruite sui 3 seed recovery; per pubblicazione")
-print(f"        servirà includere anche le curve dei 7 seed memoria (metrics.csv).")
+print(f"  NOTE: bands built on the 3 recovery seeds; for publication")
+print(f"        the curves of the 7 memory seeds (metrics.csv) would also need to be included.")
 print()
 
 # ---------------------------------------------------------------------------
@@ -343,7 +343,7 @@ summary = dict(
         ci95_hi=float(ci_pool_closed[1]),
     ),
     ccnn_reference=dict(mean=CCNN_MEAN, std=CCNN_STD, R=N_CCNN,
-                        source="handoff memoria progetto"),
+                        source="handoff project memory"),
     comparison_vs_ccnn=dict(
         delta_mean=float(np.mean(final_acc) - CCNN_MEAN),
         one_sample_t=dict(t=float(t_stat), p=float(t_pval)),

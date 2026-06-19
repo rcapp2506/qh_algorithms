@@ -11,10 +11,10 @@ Per Emerald, dati dal manoscritto Tab. emerald_convergence (sec. finetune_result
   Epoch 2 (Emerald HW fine-tune):  100% (20/20), val_loss = 0.120
   Gradient norm: 2.53e-2 (ep 1) -> 2.58e-3 (ep 2)
 
-NOTA: Emerald è single-seed con N_val=20 (Wilson 95% CI è larga: ±9.8 pp a p=1.0,
-±13.6 pp a p=0.95). Non confrontabile statisticamente alla R=10 dei sim, lo si
-riporta come prova di concetto. Il messaggio è qualitativo: il fine-tuning HW
-recupera il 100% in 2 epoche.
+NOTE: Emerald is single-seed with N_val=20 (Wilson 95% CI is wide: +/-9.8 pp at p=1.0,
++/-13.6 pp at p=0.95). Not statistically comparable to the R=10 of the simulators; it is
+reported as a proof of concept. The message is qualitative: HW fine-tuning
+recovers 100% in 2 epochs.
 """
 
 import csv, json, glob
@@ -26,7 +26,7 @@ import math
 ROOT = Path(__file__).parent
 FIG = ROOT / "figures_pere"; FIG.mkdir(exist_ok=True)
 
-# ---------------- Carica QCNN, CCNN-small, CCNN-big ----------------
+# ---------------- Load QCNN, CCNN-small, CCNN-big ----------------
 qcnn_curves = {}
 for d in sorted(Path(ROOT/'qcnn_full/stat_runs').iterdir()):
     if not d.is_dir(): continue
@@ -103,13 +103,13 @@ ax.plot(epochs, m, "-", color=CB_C, lw=2.5,
         label=f"CCNN-big   high-capacity  ({m[-1]:.4f}±{sd[-1]:.4f})  R=10")
 ax.fill_between(epochs, m-sd, m+sd, color=CB_C, alpha=0.22)
 
-# Emerald HW data — pannello 'fine-tuning on top of pretrained checkpoint'
-# Emerald si svolge in 2 epoche di fine-tuning a partire dal checkpoint
-# pretrained (epoch 0 = caricamento checkpoint sim).
-# Lo metto come "+ Emerald HW" alla destra del plot principale, su un secondo
-# asse x condiviso visivamente con flag chiaro che è HW.
-em_x = np.array([10.5, 11.5, 12.5])   # offset per visibilità sulla destra
-# disegno una pausa visiva tra sim e HW
+# Emerald HW data - panel 'fine-tuning on top of pretrained checkpoint'
+# Emerald runs over 2 fine-tuning epochs starting from the pretrained
+# checkpoint (epoch 0 = loading the sim checkpoint).
+# Place it as "+ Emerald HW" to the right of the main plot, on a second
+# x-axis visually shared, with a clear flag that it is HW.
+em_x = np.array([10.5, 11.5, 12.5])   # offset for visibility on the right
+# draw a visual gap between sim and HW
 ax.axvline(10.25, ls="--", color="gray", alpha=0.6, lw=1)
 ax.text(10.5, 0.51, "↓ same checkpoint\nloaded onto Emerald", fontsize=9,
         ha="left", color="gray", style="italic")
@@ -155,7 +155,7 @@ means  = [cb_val[:, -1].mean(), cs_val_arr[:, -1].mean(), qcnn_val[:, -1].mean()
           emerald_acc[-1]]   # epoch 2
 sds    = [cb_val[:, -1].std(ddof=1), cs_val_arr[:, -1].std(ddof=1),
           qcnn_val[:, -1].std(ddof=1), 0.0]  # HW single-seed
-# Per Emerald: Wilson CI sostituisce la SD
+# For Emerald: Wilson CI replaces the SD
 yerr_low  = [s for s in sds[:3]] + [emerald_acc[-1] - emerald_ci[-1, 0]]
 yerr_high = [s for s in sds[:3]] + [emerald_ci[-1, 1] - emerald_acc[-1]]
 colors    = [CB_C, CS_C, Q_C, HW_C]

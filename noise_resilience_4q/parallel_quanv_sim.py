@@ -361,7 +361,7 @@ class BackendManagerSimNoisy:
         basis = [g for g in all_basis if g in PHYSICAL_GATES]
         if not basis:
             raise RuntimeError(
-                f"Nessun gate fisico in NoiseModel.basis_gates={all_basis}")
+                f"No physical gate in NoiseModel.basis_gates={all_basis}")
         return transpile(
             circuit,
             basis_gates=basis,

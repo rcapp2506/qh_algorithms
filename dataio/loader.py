@@ -85,9 +85,9 @@ class EuroSATDataset(Dataset):
     def __init__(self, root_dir, transform=None, reduce_by_half=False, device='cpu'):
         self.root_dir = root_dir
         self.transform = transform
-        self.device = device  # Specifica il dispositivo (CPU o GPU)
+        self.device = device  # Specify the device (CPU or GPU)
         self.classes = sorted(os.listdir(root_dir))
-        self.classes = [self.classes[0], self.classes[-1]]  # Includi solo la prima e l'ultima classe
+        self.classes = [self.classes[0], self.classes[-1]]  # Keep only the first and last class
 
         self.data = []
         for class_label in self.classes:
@@ -95,7 +95,7 @@ class EuroSATDataset(Dataset):
             img_files = os.listdir(class_path)
 
             if reduce_by_half:
-                img_files = img_files[:len(img_files) // 2]  # Tieni solo metà delle immagini
+                img_files = img_files[:len(img_files) // 2]  # Keep only half of the images
 
             for img_file in img_files:
                 img_path = os.path.join(class_path, img_file)
@@ -135,7 +135,7 @@ class EuroSATDataModule(pl.LightningDataModule):
         self.train_dir = train_dir
         self.val_dir = val_dir
         self.reduce_by_half = reduce_by_half
-        self.device = device  # Aggiungi il dispositivo
+        self.device = device  # Store the device
 
     def setup(self, stage=None):
         transform = transforms.Compose([transforms.ToTensor()])

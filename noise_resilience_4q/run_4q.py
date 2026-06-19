@@ -543,7 +543,7 @@ def train_one_seed(config: Config4q, verbose: bool = True) -> dict:
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-        # Salvo SEMPRE le predictions dell'ultima epoca (final)
+        # ALWAYS save the predictions of the last epoch (final)
         final_y_true = epoch_y_true
         final_y_pred = epoch_y_pred
 

@@ -1,16 +1,16 @@
 """
-run_ccnn_small_matched_multiseed.py — CCNN-small matched al QCNN runned (Wave-K)
+run_ccnn_small_matched_multiseed.py - CCNN-small matched to the QCNN run (Wave-K)
 
-Architettura speculare a HybridConvNet (run_qcnn_multiseed.py), con il
-QuantumConvLayer sostituito da un Conv2d(6→6, kernel=3, padding=0) classico.
-Tutto il resto (Conv1, Conv2, BN, head) è identico al QCNN runned.
+Mirror architecture of HybridConvNet (run_qcnn_multiseed.py), with the
+QuantumConvLayer replaced by a classical Conv2d(6->6, kernel=3, padding=0).
+Everything else (Conv1, Conv2, BN, head) is identical to the QCNN run.
 
-Param count atteso: ~463,908 (vs 463,574 del QCNN). Differenza: 334 params,
-0.07% del totale → confronto pere-con-pere.
+Expected param count: ~463,908 (vs 463,574 for the QCNN). Difference: 334 params,
+0.07% of the total -> like-for-like comparison.
 
-USO
-===
-Da i9, con la stessa venv di run_qcnn_multiseed.py:
+USAGE
+=====
+On the i9, with the same venv as run_qcnn_multiseed.py:
     cd ~/code/Q-CONV
     python run_ccnn_small_matched_multiseed.py \
         --train-dir ./dataset/training \
@@ -39,7 +39,7 @@ from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Optional
 
-# Forza threading singolo classico (non serve oversubscription)
+# Force classical single-threading (no oversubscription needed)
 os.environ.setdefault("OMP_NUM_THREADS", "4")
 
 import numpy as np
@@ -48,7 +48,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
-# Lightning import compatibile con entrambe le forme del pacchetto:
+# Lightning import compatible with both forms of the package:
 #   pip install lightning           → import lightning as L
 #   pip install pytorch-lightning   → import pytorch_lightning as L
 try:
@@ -64,7 +64,7 @@ from PIL import Image
 
 
 # ───────────────────────────────────────────────────────────────────────────
-# 1.  Config — clonato da QCNNConfig con le sole shape rilevanti
+# 1.  Config - cloned from QCNNConfig with only the relevant shapes
 # ───────────────────────────────────────────────────────────────────────────
 @dataclass
 class CCNNSmallConfig:
@@ -81,7 +81,7 @@ class CCNNSmallConfig:
     num_conv_channels: int = 6
     conv_kernel_size: int = 5
     conv_padding: int = 2
-    # "replacement" del quanv layer: 6→6, ks=3, pad=0 (stessa shape del QuantumConvLayer)
+    # "replacement" for the quanv layer: 6->6, ks=3, pad=0 (same shape as QuantumConvLayer)
     replacement_kernel_size: int = 3
     replacement_padding: int = 0
     dropout_rate: float = 0.0      # come QCNN (zero), non come CCNN-grande (0.05)
@@ -196,7 +196,7 @@ class MetricsCallback(Callback):
         self.train_accs   = []
         self.val_losses   = []
         self.val_accs     = []
-        self.val_correct_final = []   # 0/1 per ogni item all'ultima epoca
+        self.val_correct_final = []   # 0/1 per item at the last epoch
         self.val_labels_final  = []
 
     def on_validation_epoch_end(self, trainer, pl_module):
@@ -211,7 +211,7 @@ class MetricsCallback(Callback):
 
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch,
                                  batch_idx, dataloader_idx=0):
-        # Solo nell'ultima validation epoch: registra correctness per-item
+        # Only in the last validation epoch: record per-item correctness
         if trainer.current_epoch == trainer.max_epochs - 1:
             x, y = batch
             with torch.no_grad():
@@ -227,8 +227,8 @@ class MetricsCallback(Callback):
 # 4.  Modello — sostituzione speculare di HybridConvNet
 # ───────────────────────────────────────────────────────────────────────────
 class MatchedClassicalConvNet(nn.Module):
-    """Identico a HybridConvNet (run_qcnn_multiseed.py) salvo il
-    QuantumConvLayer, qui sostituito da Conv2d(6→6, ks=3, pad=0)."""
+    """Identical to HybridConvNet (run_qcnn_multiseed.py) except for the
+    QuantumConvLayer, here replaced by Conv2d(6->6, ks=3, pad=0)."""
 
     def __init__(self, config: CCNNSmallConfig):
         super().__init__()
@@ -248,7 +248,7 @@ class MatchedClassicalConvNet(nn.Module):
             bn(ch), nn.ReLU(), nn.MaxPool2d(2),
         )
         # Sostituzione del QuantumConvLayer: Conv2d 6→6 ks=3 pad=0
-        # (stessa shape output del quanv: 14×14×6)
+        # (same output shape as the quanv: 14x14x6)
         self.replacement = nn.Sequential(
             nn.Conv2d(ch, ch, config.replacement_kernel_size,
                       padding=config.replacement_padding),
@@ -398,7 +398,7 @@ def main():
     p.add_argument("--max-epochs", type=int, default=10)
     p.add_argument("--max-samples", type=int, default=100)
     p.add_argument("--parallel-seeds", type=int, default=3,
-                   help="Numero di seed in parallelo via multiprocessing")
+                   help="Number of seeds in parallel via multiprocessing")
     p.add_argument("--num-workers", type=int, default=4)
     args = p.parse_args()
 
