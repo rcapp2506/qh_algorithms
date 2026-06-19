@@ -1,0 +1,29 @@
+{
+  "snapshot": "ibm_fez_20260516",
+  "subcircuit_qubits": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "n_sx": 17,
+  "n_cz": 6,
+  "restricted_to_subcircuit_qubits": {
+    "eps_sx_avg": 0.0008202467460424745,
+    "eps_cz_avg": 0.004715385267679968,
+    "eps_cz_per_coupling": {
+      "0-1": 0.009265675045999067,
+      "1-2": 0.0027160846638640823,
+      "2-3": 0.002164396093176757
+    },
+    "F_4q": 0.9585733982486039,
+    "infidelity": 0.04142660175139612
+  },
+  "device_wide": {
+    "eps_sx_avg": 0.00900195506120292,
+    "eps_cz_avg": 0.028048835700396225,
+    "F_4q": 0.7229432830036532,
+    "infidelity": 0.2770567169963468,
+    "note": "inflated by a few qubits/couplings with gate errors > 50%; not the noise seen by the sub-circuit"
+  }
+}
