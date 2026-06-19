@@ -86,7 +86,7 @@ from qiskit_aer.noise import NoiseModel
 # =============================================================================
 
 class ParallelQuanvCircuit:
-    """K sub-circuiti 4-qubit indipendenti, weight-sharing, sampler-based.
+    """K independent 4-qubit sub-circuits, weight-sharing, sampler-based.
 
     Exact mathematical equivalent of the monolithic `ParallelFilippiCircuit`
     of the v4.3.0 notebook for any block-local observable
@@ -99,17 +99,17 @@ class ParallelQuanvCircuit:
         self.num_weights = config.num_weights
         self.mo = config.measure_qubit
 
-        # Un solo template di sub-circuito, riusato K volte con bind diversi.
+        # A single sub-circuit template, reused K times with different binds.
         # The input parameters are ONE single ParameterVector of n (not K different
         # as in the monolithic case), because each sub-circuit is bound separately
-        # con un patch diverso.
+        # with a different patch.
         self.x = ParameterVector('x', self.n)
         self.w = ParameterVector('w', self.num_weights)
         self.sub_circuit = self._build_sub_circuit()
 
         # Monolithic reference, NOT used in forward/step (would be too
         # large for density_matrix). Exposed for debug/equivalence verification.
-        # Costruzione lazy: si crea solo se richiesto esplicitamente.
+        # Lazy construction: built only if explicitly requested.
         self._monolithic = None
 
         print(f"  ParallelQuanvCircuit: K={self.K} sub-circuits di {self.n}q "
@@ -118,10 +118,10 @@ class ParallelQuanvCircuit:
               f"ops_sub={dict(self.sub_circuit.count_ops())}")
 
     def _build_sub_circuit(self) -> QuantumCircuit:
-        """Costruisce un singolo blocco n-qubit con 1 classical register 1-bit.
+        """Builds a single n-qubit block with 1 classical register (1 bit).
 
         Identical to the k-th block of the ParallelFilippiCircuit (v4.3.0 notebook)
-        ma senza offset di registro.
+        but without a register offset.
         """
         qr = QuantumRegister(self.n, 'q')
         cr = ClassicalRegister(1, 'c0')
@@ -140,16 +140,16 @@ class ParallelQuanvCircuit:
         return qc
 
     def bind(self, x_vals: np.ndarray, w_vals: np.ndarray) -> QuantumCircuit:
-        """Bind un sub-circuit con specifici input x e weights w."""
+        """Bind a sub-circuit with specific input x and weights w."""
         params = {p: float(x_vals[i]) for i, p in enumerate(self.x)}
         params.update({p: float(w_vals[i]) for i, p in enumerate(self.w)})
         return self.sub_circuit.assign_parameters(params)
 
     # --- Monolithic helper (debug only, not used in training) ----------
     def build_monolithic_for_debug(self) -> QuantumCircuit:
-        """Costruisce la versione monolitica K*n-qubit (solo per benchmark di
-        equivalence, NOT for density_matrix simulation at K=4). Usable only
-        a K piccoli (K<=2) o per statevector noiseless."""
+        """Builds the monolithic K*n-qubit version (only for equivalence
+        benchmarks, NOT for density_matrix simulation at K=4). Usable only
+        at small K (K<=2) or for noiseless statevector."""
         if self._monolithic is not None:
             return self._monolithic
         x_per_k = [ParameterVector(f'x{k}', self.n) for k in range(self.K)]
@@ -179,35 +179,35 @@ class ParallelQuanvCircuit:
 # =============================================================================
 
 class BackendManagerSimNoisy:
-    """Versione di BackendManager per Aer density_matrix con NoiseModel.
+    """BackendManager variant for Aer density_matrix with a NoiseModel.
 
     Replaces `_setup_sim()` of the v4.3.0 notebook (which used
-    statevector noiseless). Configurazione mirata per un nodo HPC con
+    statevector noiseless). Configuration targeted at an HPC node with
     OMP=8 and BLAS=1 (see sbatch).
 
-    Parametri rilevanti:
+    Relevant parameters:
       - noise_snapshot_path: path to the pickle of the NoiseModel (e.g. ibm_fez)
-      - aer_max_parallel_experiments: numero worker Aer paralleli (=8 su Levante)
+      - aer_max_parallel_experiments: number of parallel Aer workers (=8 on Levante)
       - noise_qubits: list of chip qubit IDs to which the NoiseModel is restricted
         (default = range(num_qubits), i.e. qubits 0..n-1 of the chip).
 
     **NoiseModel restriction** (performance-critical)
     --------------------------------------------------------
-    Lo snapshot ibm_fez_20260516.pkl contiene la calibrazione di 156 qubit
-    fisici. Se passato così com'è a AerSimulator, ogni `run()` paga un
-    overhead di ~4 secondi indipendente dal batch size, perché Aer ricostruisce
+    The ibm_fez_20260516.pkl snapshot contains the calibration of 156
+    physical qubits. If passed as-is to AerSimulator, every `run()` pays an
+    overhead of ~4 seconds independent of the batch size, because Aer rebuilds
     the error structures for all 156 qubits. Furthermore the per-circuit cost
     is ~30x larger than the minimal synthetic NoiseModel.
 
-    Soluzione: restringere il NoiseModel ai soli qubit effettivamente usati
+    Solution: restrict the NoiseModel to only the qubits actually used
     by the sub-circuit (default: qubits 0..n-1). The qubits of our sub-circuit
     are Aer virtual qubits (they have no direct physical correspondence in
     simulation), so we map virtual 0..n-1 -> physical 0..n-1 of the chip.
 
-    Misurato sul nostro sandbox: 61 ms/circ (full) → 2.9 ms/circ (ridotto), 22× speedup.
+    Measured on our sandbox: 61 ms/circ (full) -> 2.9 ms/circ (restricted), 22x speedup.
 
     For a more "realistic" mapping of the hardware pattern (qubits with
-    fidelity migliore), passare `noise_qubits=[3, 7, 12, 22]` o simile.
+    better fidelity), pass `noise_qubits=[3, 7, 12, 22]` or similar.
     """
 
     def __init__(self, config, noise_snapshot_path: str,
@@ -254,7 +254,7 @@ class BackendManagerSimNoisy:
                 f"Atteso NoiseModel o dict.")
         n_phys = self._count_qubits_in_noise(self.noise_model_full)
         print(f"  NoiseModel full caricato in {time.time()-t0:.2f}s "
-              f"(≥{n_phys} qubit fisici)")
+              f"({n_phys} physical qubits)")
 
         # Restringi il NoiseModel ai soli qubit di interesse.
         # Measured speedup: ~22x over the full model on the 4-qubit sub-circuit.
@@ -262,14 +262,14 @@ class BackendManagerSimNoisy:
         self.noise_model = self._restrict_noise_model(
             self.noise_model_full, self.noise_qubits)
         n_err = self._count_errors(self.noise_model)
-        print(f"  NoiseModel ristretto a qubit {self.noise_qubits} "
+        print(f"  NoiseModel restricted to qubits {self.noise_qubits} "
               f"in {time.time()-t0:.2f}s ({n_err} quantum errors)")
         print(f"  basis_gates: {sorted(self.noise_model.basis_gates)}")
 
-        # AerSimulator density_matrix con NoiseModel ristretto.
-        # max_parallel_experiments=8 distribuisce i PUB sui worker.
-        # max_parallel_threads=8 cappa il pool totale (con BLAS=1 nelle env
-        # vars dello sbatch, significa 8 worker single-thread BLAS).
+        # AerSimulator density_matrix with the restricted NoiseModel.
+        # max_parallel_experiments=8 distributes the PUBs across workers.
+        # max_parallel_threads=8 caps the total pool (with BLAS=1 in the sbatch
+        # env vars, this means 8 single-thread-BLAS workers).
         self.backend = AerSimulator(
             method='density_matrix',
             noise_model=self.noise_model,
@@ -277,7 +277,7 @@ class BackendManagerSimNoisy:
             max_parallel_threads=self.aer_parallel,
         )
         # For the config.num_parallel_blocks check in the notebook __init__,
-        # esponiamo un num_qubits "logico" largo (non c'è un chip reale).
+        # we expose a wide "logical" num_qubits (there is no real chip).
         self.num_backend_qubits = max(64, self.config.total_qubits)
         self.backend_name = (
             f"AerSimulator(density_matrix, noise={self.noise_snapshot_path.split('/')[-1]}, "
@@ -287,7 +287,7 @@ class BackendManagerSimNoisy:
 
     @staticmethod
     def _count_qubits_in_noise(nm: NoiseModel) -> int:
-        """Stima il numero di qubit per cui il NoiseModel ha calibrazioni."""
+        """Estimates the number of qubits for which the NoiseModel has calibrations."""
         qubits = set()
         for d in (getattr(nm, '_local_quantum_errors', {}),
                   getattr(nm, '_local_readout_errors', {})):
@@ -298,7 +298,7 @@ class BackendManagerSimNoisy:
                 else:
                     # _local_readout_errors: keys are directly tuples
                     pass
-        # Per _local_readout_errors la struttura è {tuple: ReadoutError}
+        # For _local_readout_errors the structure is {tuple: ReadoutError}
         for qbts in getattr(nm, '_local_readout_errors', {}).keys():
             qubits.update(qbts)
         return max(qubits) + 1 if qubits else 0
@@ -317,13 +317,13 @@ class BackendManagerSimNoisy:
                               qubit_ids: list) -> NoiseModel:
         """Extracts a sub-NoiseModel from the `qubit_ids` of the full NoiseModel only.
 
-        Rimappa i qubit fisici qubit_ids[i] → virtual i (0, 1, ..., len-1)
+        Remaps physical qubits qubit_ids[i] -> virtual i (0, 1, ..., len-1)
         in the sub-NoiseModel. Therefore a sub-circuit using virtual qubits
         0..n-1 sees the noise of physical qubits qubit_ids[0..n-1].
 
-        Cruciale per performance: il NoiseModel ibm_fez full ha 156 qubit
+        Crucial for performance: the full ibm_fez NoiseModel has 156 qubits
         of calibration; restricting it to the 4 qubits of the sub-circuit yields
-        ~22× speedup per ms/circ e azzeramento dell'overhead per-run.
+        a ~22x speedup per ms/circ and removes the per-run overhead.
         """
         qubit_set = set(qubit_ids)
         phys_to_virt = {phys: virt for virt, phys in enumerate(qubit_ids)}
@@ -373,12 +373,12 @@ class BackendManagerSimNoisy:
 
 
 class AerSamplerWrapperFixed:
-    """Sampler wrapper per AerSimulator(density_matrix) con noise_model.
+    """Sampler wrapper for AerSimulator(density_matrix) with a noise_model.
 
     Identical in spirit to `AerSamplerWrapper` of the v4.3.0 notebook, but
     exposes `data.c0` with the single-1-bit-register convention used
-    dai sub-circuiti di `ParallelQuanvCircuit`. Niente parsing di
-    multi-register: ogni sub-circuit ha 1 solo registro classico da 1 bit.
+    by the sub-circuits of `ParallelQuanvCircuit`. No multi-register
+    parsing: each sub-circuit has a single 1-bit classical register.
     """
 
     def __init__(self, backend, default_shots: int = 500):
@@ -408,7 +408,7 @@ class _AerJobResult:
 class _AerSubCircuitResult:
     """Result of a single 4-qubit sub-circuit with 1 classical bit.
 
-    `data.c0.get_counts()` restituisce {'0': n_zero, '1': n_one}.
+    `data.c0.get_counts()` returns {'0': n_zero, '1': n_one}.
     """
     def __init__(self, counts: dict):
         self.data = _AerSubCircuitData(counts)
@@ -417,13 +417,13 @@ class _AerSubCircuitResult:
 class _AerSubCircuitData:
     def __init__(self, counts: dict):
         # counts may be on 1 bit or more (if measure_all was used).
-        # Normalizziamo a {'0': n, '1': n} sul bit 0 (l'unico misurato).
+        # Normalise to {'0': n, '1': n} on bit 0 (the only measured one).
         if not counts:
             self._counts = {'0': 0, '1': 0}
         else:
             first_key = next(iter(counts))
             if len(first_key.replace(' ', '')) == 1:
-                # Già 1 bit
+                # Already 1 bit
                 self._counts = {'0': counts.get('0', 0),
                                 '1': counts.get('1', 0)}
             else:
@@ -446,19 +446,19 @@ class _CountsAccessor:
 
 
 # =============================================================================
-# Engine (sampler-based, K-aware su sub-PUB indipendenti)
+# Engine (sampler-based, K-aware on independent sub-PUBs)
 # =============================================================================
 
 class QuantumEnginePSSim:
-    """Parameter Shift engine per backend simulator con K sub-PUB indipendenti.
+    """Parameter-shift engine for the simulator backend with K independent sub-PUBs.
 
     API-compatible with `QuantumEnginePS` of the v4.3.0 notebook:
-    espone `forward_only(patches, w)` e `step(patches, w, compute_gx=...)`.
+    exposes `forward_only(patches, w)` and `step(patches, w, compute_gx=...)`.
 
-    Differenza con il `QuantumEnginePS` Emerald:
+    Difference from the Emerald `QuantumEnginePS`:
       - submits G*K sub-circuits (G groups x K blocks per group) as a
         PUB list to the sampler, instead of G monolithic circuits of K blocks
-      - Aer parallelizza nativamente sui worker
+      - Aer parallelises natively across workers
       - ev extraction: 1 value per sub-result (data.c0), instead of K
         values per monolithic result
     """
@@ -473,16 +473,16 @@ class QuantumEnginePSSim:
         self.mb = config.max_bindings_per_job
         self.cb = ParallelQuanvCircuit(config)
 
-        # Transpile UNA volta sul template di sub-circuit (cache).
-        # The transpiled sub-circuit is then used with assign_parameters() to
-        # ogni bind: Aer evita ri-transpile inutili.
+        # Transpile ONCE on the sub-circuit template (cache).
+        # The transpiled sub-circuit is then reused with assign_parameters() at
+        # each bind: Aer avoids useless re-transpilation.
         print("  Transpiling sub-circuit template...")
         t0 = time.time()
-        # Salviamo il template parametrico transpilato; il bind successivo
-        # sostituisce solo i valori numerici.
+        # We keep the transpiled parametric template; the subsequent bind
+        # only substitutes the numerical values.
         self._sub_transpiled = bm.transpile_circuit(self.cb.sub_circuit)
-        # Ricostruiamo l'oggetto cb con sub_circuit transpilato per i bind:
-        # tecnicamente la cb.sub_circuit originale è in basis logico,
+        # We rebuild the cb object with the transpiled sub_circuit for binding:
+        # technically the original cb.sub_circuit is in the logical basis,
         # whereas what we hand to the sampler must be in the noise basis.
         self.cb.sub_circuit = self._sub_transpiled
         dt = time.time() - t0
@@ -499,15 +499,15 @@ class QuantumEnginePSSim:
     # --- Internals -----------------------------------------------------------
 
     def _bind(self, patches: np.ndarray, w: np.ndarray):
-        """Produce G*K sub-circuiti bindati.
+        """Produces G*K bound sub-circuits.
 
-        patches: array shape (N, n) — N patches da n features ciascuna
-        w: array shape (nw,) — pesi quantistici condivisi
+        patches: array shape (N, n) - N patches of n features each
+        w: array shape (nw,) - shared quantum weights
 
-        Ritorna:
-          bound : list di G*K QuantumCircuit bindati (ordine: g=0 k=0..K-1,
+        Returns:
+          bound : list of G*K bound QuantumCircuits (order: g=0 k=0..K-1,
                   g=1 k=0..K-1, ...)
-          N     : numero originale di patches
+          N     : original number of patches
           G     : number of logical groups (= ceil(N/K))
         """
         N = patches.shape[0]
@@ -549,7 +549,7 @@ class QuantumEnginePSSim:
     # --- Public API (compatible with QuantumEnginePS of the notebook) --------
 
     def forward_only(self, patches: np.ndarray, w: np.ndarray) -> np.ndarray:
-        """Solo forward, niente gradienti (per validation)."""
+        """Forward only, no gradients (for validation)."""
         bound, N, _ = self._bind(patches, w)
         return self._evs(self._exec(bound), N)
 
@@ -557,14 +557,14 @@ class QuantumEnginePSSim:
              compute_gx: bool = True):
         """A single mini-batch step: forward + gw + (optional) gx.
 
-        Ritorna:
+        Returns:
           fwd : array (N, 1)
           gw  : array (nw, N, 1)
-          gx  : array (n, N, 1) oppure None se compute_gx=False
+          gx  : array (n, N, 1) or None if compute_gx=False
 
         If freeze_backbone is active (so patches have no gradient
         with respect to the backbone parameters), pass compute_gx=False
-        risparmia 2n PUB-batch (-47% sui passi di gradiente).
+        saves 2n PUB-batches (-47% on the gradient steps).
         """
         S = self.SHIFT
 
@@ -572,7 +572,7 @@ class QuantumEnginePSSim:
         bound_fwd, N, _ = self._bind(patches, w)
         fwd = self._evs(self._exec(bound_fwd), N)
 
-        # Gradiente rispetto ai pesi w (parameter-shift)
+        # Gradient with respect to the weights w (parameter-shift)
         gw = np.zeros((self.nw, N, 1))
         for j in range(self.nw):
             wp = w.copy(); wp[j] += S
@@ -581,7 +581,7 @@ class QuantumEnginePSSim:
             gw_m = self._evs(self._exec(self._bind(patches, wm)[0]), N)
             gw[j] = (gw_p - gw_m) / 2
 
-        # Gradiente rispetto agli input x (parameter-shift per qubit)
+        # Gradient with respect to the inputs x (parameter-shift per qubit)
         if compute_gx:
             gx = np.zeros((self.n, N, 1))
             for i in range(self.n):
@@ -601,6 +601,6 @@ class QuantumEnginePSSim:
 # =============================================================================
 
 if __name__ == "__main__":
-    print("parallel_quanv_sim.py — modulo importabile, niente da eseguire.")
+    print("parallel_quanv_sim.py - importable module, nothing to run.")
     print("Per il bench: python bench_aer_4q.py")
     print("To integrate in the notebook: see the trailing comment of this file.")

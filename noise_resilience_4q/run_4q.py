@@ -69,7 +69,7 @@ from parallel_quanv_sim import (
 
 
 # ============================================================================
-# Config (allineato al multiseed 9q noiseless per pairing Wilcoxon)
+# Config (aligned with the 9q noiseless multiseed run for Wilcoxon pairing)
 # ============================================================================
 
 @dataclass
@@ -79,8 +79,8 @@ class Config4q:
 
     # Quantum architecture (4q, diverso dal 9q-noiseless)
     num_qubits: int = 4
-    kernel_size: int = 2              # 2×2 quantum kernel (era 3×3 per 9q)
-    stride: int = 3                   # 16→5 quanv output, coerente con Emerald v4.3.0
+    kernel_size: int = 2              # 2x2 quantum kernel (was 3x3 for 9q)
+    stride: int = 3                   # 16->5 quanv output, consistent with Emerald v4.3.0
     quanv_padding: int = 0
     num_parallel_blocks: int = 4      # K=4 parallel blocks (independent sub-PUBs)
     measure_qubit: int = 0
@@ -107,7 +107,7 @@ class Config4q:
     max_epochs: int = 10
     lr: float = 0.001
     weight_decay: float = 1e-4
-    num_workers: int = 0   # 0 per evitare overhead spawn su small dataset
+    num_workers: int = 0   # 0 to avoid spawn overhead on the small dataset
 
     # Backend
     backend_type: str = "sim_noisy"   # "sim_noisy" | "sim_noiseless"
@@ -147,16 +147,16 @@ class Config4q:
 
 
 # ============================================================================
-# Backend manager minimo per modalità noiseless (riusa interfaccia parallel_quanv_sim)
+# Minimal backend manager for the noiseless mode (reuses the parallel_quanv_sim interface)
 # ============================================================================
 
 class BackendManagerSimNoiseless:
-    """Drop-in compatible con BackendManagerSimNoisy ma senza NoiseModel.
+    """Drop-in compatible with BackendManagerSimNoisy but without a NoiseModel.
 
     Uses AerSimulator(method='statevector'): identical in API to the
     sampler-based noisy but substantially faster (for the local Mac run).
-    L'engine QuantumEnginePSSim non vede differenze: ottiene un sampler
-    che produce counts via shots.
+    The QuantumEnginePSSim engine sees no difference: it obtains a sampler
+    that produces counts via shots.
     """
     def __init__(self, config, aer_max_parallel_experiments: int = 8):
         self.config = config
@@ -180,7 +180,7 @@ class BackendManagerSimNoiseless:
         print(f"  {self.backend_name} | K={self.config.num_parallel_blocks}")
 
     def transpile_circuit(self, circuit):
-        # Niente NoiseModel → niente vincoli di basis. Lascio passare tale e quale.
+        # No NoiseModel -> no basis constraints. Pass circuits through unchanged.
         # Aer accetta ry, h, cx nativamente in statevector method.
         return circuit
 
@@ -242,7 +242,7 @@ class QuantumConvFunctionPSSim(torch.autograd.Function):
 
 
 class QuantumConvLayer(nn.Module):
-    """4q quantum conv: estrae patch ks×ks per canale, applica QuantumEngine.
+    """4q quantum conv: extracts ks x ks patches per channel, applies QuantumEngine.
 
     Channel batching: all channels concatenated into a single engine call
     (B*C*P bindings in total). Exact replica of the logic of the 9q multiseed run
@@ -283,7 +283,7 @@ class QuantumConvLayer(nn.Module):
             x_c = x_pad[:, c:c+1, :, :]
             patches = F.unfold(x_c, kernel_size=self.kernel_size,
                                stride=self.stride)
-            # Normalizzazione → [0, π] per encoding RY ottimale
+            # Normalisation -> [0, pi] for optimal RY encoding
             p_min = patches.min(dim=2, keepdim=True).values
             p_max = patches.max(dim=2, keepdim=True).values
             p_range = (p_max - p_min).clamp(min=1e-8)
@@ -357,14 +357,14 @@ class HybridQCNN(nn.Module):
 
 
 # ============================================================================
-# EuroSAT dataset (compatibile con struttura del multiseed)
+# EuroSAT dataset (compatible with the multiseed structure)
 # ============================================================================
 
 class EuroSATDataset(Dataset):
     """Loads EuroSAT images from an ImageFolder structure.
 
-    Si aspetta `root_dir/<classname>/*.jpg`. Filtra `selected_classes`
-    e limita `max_per_class` samples per classe.
+    Expects `root_dir/<classname>/*.jpg`. Filters `selected_classes`
+    and caps `max_per_class` samples per class.
     """
 
     def __init__(self, root_dir: str, classes=None, max_per_class=None,
@@ -438,7 +438,7 @@ def build_dataloaders(config: Config4q):
 def train_one_seed(config: Config4q, verbose: bool = True) -> dict:
     """Runs training for 1 seed and returns metrics + predictions.
 
-    Ritorna un dict con chiavi:
+    Returns a dict with keys:
       seed, config, history (per-epoch), best_val_acc, final_val_acc,
       predictions (y_true, y_pred), wall_time_s
     """
@@ -587,7 +587,7 @@ def main():
                     help='Path al pickle del NoiseModel (per sim_noisy)')
     ap.add_argument('--noise-qubits', type=int, nargs='+',
                     default=[0, 1, 2, 3],
-                    help='Qubit fisici su cui restringere il NoiseModel')
+                    help='Physical qubits to restrict the NoiseModel to')
     ap.add_argument('--train-dir', required=True)
     ap.add_argument('--val-dir', required=True)
     ap.add_argument('--output-dir', required=True)
@@ -617,9 +617,9 @@ def main():
     print("=" * 70)
     print(f"  4q QCNN training — seed={cfg.seed}, backend={cfg.backend_type}")
     print("=" * 70)
-    print(f"  Quanv output: {cfg.quanv_output_size}×{cfg.quanv_output_size}, "
+    print(f"  Quanv output: {cfg.quanv_output_size}x{cfg.quanv_output_size}, "
           f"flatten size: {cfg.flatten_size}")
-    print(f"  Quantum: K={cfg.num_parallel_blocks} blocchi × {cfg.num_qubits}q, "
+    print(f"  Quantum: K={cfg.num_parallel_blocks} blocks x {cfg.num_qubits}q, "
           f"shots={cfg.shots}")
     print(f"  Training: {cfg.max_epochs} ep, batch={cfg.batch_size}, "
           f"lr={cfg.lr}, max_samples/class={cfg.max_samples_per_class}")

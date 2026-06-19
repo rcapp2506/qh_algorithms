@@ -58,8 +58,8 @@ def load_arch_results(directory: str,
                       metric: str = 'final_val_acc') -> dict:
     """Loads results for an architecture from a directory of JSON files.
 
-    Ritorna {seed: metric}. Si aspetta file `results_seed_NNN.json` ognuno
-    con keys `seed` e la `metric` desiderata.
+    Returns {seed: metric}. Expects files `results_seed_NNN.json`, each
+    with keys `seed` and the desired `metric`.
     """
     out = {}
     d = Path(directory)
@@ -69,7 +69,7 @@ def load_arch_results(directory: str,
         with open(p) as f:
             r = json.load(f)
         if 'seed' not in r or metric not in r:
-            print(f"  ⚠️  {p}: manca 'seed' o '{metric}', skip")
+            print(f"  ⚠️  {p}: missing 'seed' or '{metric}', skip")
             continue
         out[int(r['seed'])] = float(r[metric])
     if not out:
@@ -116,16 +116,16 @@ def compare_two_archs(a_dict: dict, b_dict: dict,
                       min_paired: int = 5) -> dict:
     """Statistical comparison between 2 architectures, automatically paired or unpaired.
 
-    Strategia:
-      - Se # seed in comune ≥ min_paired → Wilcoxon paired (più potente,
+    Strategy:
+      - If # common seeds >= min_paired -> paired Wilcoxon (more powerful,
         controls the initialisation-driven variance)
-      - Otherwise → unpaired Mann-Whitney U on all seeds of each architecture
+      - Otherwise -> unpaired Mann-Whitney U on all seeds of each architecture
 
     a_dict, b_dict: {seed: accuracy} for each of the 2 architectures
     """
     common = sorted(set(a_dict.keys()) & set(b_dict.keys()))
     if len(common) >= min_paired:
-        # PAIRED Wilcoxon sui seed comuni
+        # PAIRED Wilcoxon on the common seeds
         a = np.array([a_dict[s] for s in common])
         b = np.array([b_dict[s] for s in common])
         diff = a - b
@@ -166,7 +166,7 @@ def compare_two_archs(a_dict: dict, b_dict: dict,
             'std_diff':  float(np.sqrt(a.var(ddof=1)/len(a)
                                        + b.var(ddof=1)/len(b))),
         }
-        # Cohen's d per gruppi indipendenti (pooled std)
+        # Cohen's d for independent groups (pooled std)
         pooled_var = ((len(a)-1)*a.var(ddof=1)
                       + (len(b)-1)*b.var(ddof=1)) / (len(a)+len(b)-2)
         out['effect_size_d'] = (out['mean_diff'] / np.sqrt(pooled_var)
@@ -219,10 +219,10 @@ def main():
     for label, directory in args.runs:
         accs_dict = load_arch_results(directory, metric=args.metric)
         arch_data[label] = accs_dict
-        print(f"  [{label}] R={len(accs_dict)} seed da {directory}")
+        print(f"  [{label}] R={len(accs_dict)} seeds from {directory}")
 
-    # 2. Aggiungi punti proiettati se richiesto (NON pairati, plottabili solo
-    #    come mean ± CI)
+    # 2. Add projected points if requested (NOT paired, plottable only
+    #    as mean +/- CI)
     projection = None
     if args.projection:
         projection = load_projection(args.projection)
@@ -305,7 +305,7 @@ def main():
             ax.set_xticklabels(xlabels, fontsize=9)
             ax.set_ylabel(args.metric)
             ax.set_title(f"Cross-architecture comparison ({args.metric})")
-            # Aggiungi mean + CI ticks
+            # Add mean + CI ticks
             for i, (label, arr) in enumerate(zip(labels, data_to_plot), start=1):
                 lo, mean, hi = wilson_ci(arr)
                 ax.errorbar(i, mean, yerr=[[mean-lo], [hi-mean]],
@@ -328,7 +328,7 @@ def main():
             plt.savefig(args.plot, dpi=120)
             print(f"\n  Plot saved: {args.plot}")
         except ImportError:
-            print(f"\n  ⚠️  matplotlib non disponibile, plot saltato")
+            print(f"\n  ⚠️  matplotlib not available, plot skipped")
 
     # 7. Save
     if args.out:
