@@ -133,7 +133,7 @@ ax.set_xlim(0.5, 13)
 ax.set_ylim(0.45, 1.05)
 ax.set_xlabel("Epoch (Aer simulator) " + " "*30 + "Fine-tuning on IQM Emerald")
 ax.set_ylabel("Validation accuracy")
-ax.set_title("Wave-K: 4-level evidence ladder — Aer (R=10 sim) and IQM Emerald (single-run hardware fine-tuning)")
+ax.set_title("4-level evidence ladder — Aer (R=10 sim) and IQM Emerald (single-run hardware fine-tuning)")
 ax.grid(alpha=0.3)
 ax.legend(loc="lower right", fontsize=9.5)
 
@@ -181,12 +181,12 @@ ax.text(xs[3], means[3]+yerr_high[3]+0.005,
 ax.set_xticks(xs)
 ax.set_xticklabels(labels, fontsize=9.5)
 ax.set_ylabel("Validation accuracy (final epoch)")
-ax.set_title("Wave-K: 4-level final validation accuracy summary\n"
+ax.set_title("4-level final validation accuracy summary\n"
              "(error bars: ±1σ across R=10 seeds for sim; Wilson 95% CI for HW single run)")
 ax.set_ylim(0.85, 1.1)
 ax.grid(alpha=0.3, axis="y")
 
-# Linea di "no separation" tra sim e HW
+# "No separation" line between sim and HW
 ax.axvline(2.5, ls="--", color="gray", alpha=0.5)
 ax.text(2.5, 0.86, " sim → HW", fontsize=10, color="gray",
         rotation=90, va="bottom", ha="right")
