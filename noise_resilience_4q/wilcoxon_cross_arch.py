@@ -8,7 +8,11 @@ Compares R identical seeds across up to 4 architectures:
   - 9q noisy projected (output of project_4q_to_9q.py, optional)
 
 For each pair of architectures (i, j) it computes:
-  - Wilcoxon signed-rank paired test (scipy.stats.wilcoxon)
+  - Wilcoxon signed-rank paired test (scipy.stats.wilcoxon, method='exact');
+    paired differences are snapped to the metric quantisation grid
+    (multiples of 1/n_val, default n_val=200) before ranking, so ties in
+    |delta| are genuine and receive midranks -- rounding the accuracies
+    alone would not remove floating-point artefacts from the differences
   - Mean difference (mean Δ) and Cohen's d_z paired effect size
   - Significance at level α=0.05
 
@@ -113,7 +117,7 @@ def wilson_ci(accs: np.ndarray, conf: float = 0.95) -> tuple:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def compare_two_archs(a_dict: dict, b_dict: dict,
-                      min_paired: int = 5) -> dict:
+                      min_paired: int = 5, n_val: int = 200) -> dict:
     """Statistical comparison between 2 architectures, automatically paired or unpaired.
 
     Strategy:
@@ -128,7 +132,7 @@ def compare_two_archs(a_dict: dict, b_dict: dict,
         # PAIRED Wilcoxon on the common seeds
         a = np.array([a_dict[s] for s in common])
         b = np.array([b_dict[s] for s in common])
-        diff = a - b
+        diff = np.round((a - b) * n_val) / n_val if n_val else (a - b)
         out = {
             'test_type': 'wilcoxon_paired',
             'n_pairs':   len(common),
@@ -142,8 +146,8 @@ def compare_two_archs(a_dict: dict, b_dict: dict,
                                   if out['std_diff'] > 0 else np.nan)
         if HAS_SCIPY:
             try:
-                w, p = wilcoxon(a, b, zero_method='wilcox',
-                                alternative='two-sided')
+                w, p = wilcoxon(diff, zero_method='wilcox',
+                                alternative='two-sided', method='exact')
                 out['statistic'] = float(w)
                 out['p_value'] = float(p)
                 out['significant_alpha_005'] = bool(p < 0.05)
@@ -204,6 +208,9 @@ def main():
     ap.add_argument('--runs', nargs='+', type=parse_arch_arg, required=True,
                     metavar='LABEL:DIR',
                     help='List of architectures, e.g. 4q_noisy:./results_4q_noisy')
+    ap.add_argument('--n-val', type=int, default=200,
+                    help='validation-set size: accuracies are multiples of 1/n_val; '
+                         'differences are snapped to this grid before ranking (0 disables)')
     ap.add_argument('--metric', default='final_val_acc',
                     help='Metric to extract from the JSON files (default: final_val_acc)')
     ap.add_argument('--projection', default=None,
@@ -271,7 +278,7 @@ def main():
     print(f"  {'pair':<48} {'test':<10} {'Δmean':>9} {'eff':>7} {'p-val':>9} {'sig':>4}")
     print("  " + "-"*78)
     for la, lb in itertools.combinations(labels, 2):
-        res = compare_two_archs(arch_data[la], arch_data[lb])
+        res = compare_two_archs(arch_data[la], arch_data[lb], n_val=args.n_val)
         pair_label = f"{la}  vs  {lb}"
         pair_results[pair_label] = res
         sig = '✓' if res.get('significant_alpha_005') else '·'

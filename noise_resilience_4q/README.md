@@ -135,7 +135,9 @@ Expected output of `wilcoxon_cross_arch.py` on the thesis data:
 4q_noiseless: mean = 0.9640 ± 0.0147, Wilson 95% CI [0.957, 0.971]
 4q_noisy    : mean = 0.9620 ± 0.0136, Wilson 95% CI [0.955, 0.969]
 paired Wilcoxon (4q_noiseless vs 4q_noisy):
-    p = 0.0625, Cohen's d_z = +0.50, mean Δ = +0.0020
+    p = 0.2188, Cohen's d_z = +0.57, mean Δ = +0.0020
+    (differences snapped to the 1/200 grid: all six non-zero |Δ| tied at
+    0.005, the signed-rank statistic degenerates to the sign test, 14/64)
 ```
 
 ## Citation
