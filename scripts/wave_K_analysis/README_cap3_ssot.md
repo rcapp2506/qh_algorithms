@@ -31,3 +31,29 @@ reported only as a cross-check.
 ```
 python aggregate_cap3_stats.py
 ```
+
+## Statistical-algorithms audit (Chapter 3)
+
+`power_montecarlo_wilcoxon.py` + `power_montecarlo_results.json` are an **audit
+performed to validate the statistical algorithms used in Chapter 3**: a Monte
+Carlo estimate of the power of the exact two-sided Wilcoxon signed-rank test at
+the campaign's sample size (n = 10 paired seeds, α = 0.05), under normal shift
+alternatives N(d_z, 1), 4000 replications, fixed seed 42.
+
+Audited claims (defense technical appendix, frame B4):
+
+| d_z | 0.50 | 0.86 | 1.00 | 1.30 |
+|---|---|---|---|---|
+| power (published) | 0.29 | 0.65 | 0.78 | 0.94 |
+| power (this audit, seed 42) | 0.294 | 0.654 | 0.777 | 0.943 |
+| power (independent seed 999) | 0.275 | 0.659 | 0.785 | 0.942 |
+
+All published values reproduced within ≤ 2 Monte Carlo standard errors
+(SE ≤ 0.008 at 4000 reps); the script asserts agreement within ±0.02.
+Reading: the R = 10 design is powered for large effects (d_z ≳ 1); smaller
+effects are reported as "not detectable at R = 10" with the Hodges–Lehmann
+bound doing the quantitative work.
+
+```
+python power_montecarlo_wilcoxon.py
+```
